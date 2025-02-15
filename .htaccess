@@ -12,8 +12,8 @@
     RewriteCond %{QUERY_STRING} ^(https?://.*)$ [NC]  # Captures URLs directly after the '?'
     RewriteRule ^/?$ /redirect.php?url=%1 [L,R=301]
 
-    # Handle non-http(s) URL inputs directly after '?'
-    RewriteCond %{QUERY_STRING} ^([^https].*)$ [NC]  # Captures any other input directly after the '?'
+    # Handle non-http(s) URL inputs directly after '?' using a negative lookahead
+    RewriteCond %{QUERY_STRING} ^(?!https?://)(.*)$ [NC]
     RewriteRule ^/?$ /redirect.php?url=http://%1 [L,R=301]
 
     # Custom error pages
