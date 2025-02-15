@@ -2,93 +2,110 @@
 // List of known affiliate query parameters
 $affiliateParams = ['ref', 'ref_', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'aff'];
 
-// Function to ensure proper scheme addition for URLs missing them
+/**
+ * Ensure the URL has a scheme. If missing, prepend 'http://'.
+ * (Optionally, you can add logic to enforce 'www.' if needed.)
+ */
 function ensureHttp($url) {
-    // Check if the URL has a scheme. If not, prepend 'http://'
     if (!preg_match('/^https?:\/\//i', $url)) {
-        // Assume 'http://' if no scheme is detected
         $url = 'http://' . $url;
-    }
-    // Ensure starting with 'www.' if no subdomain is apparent
-    if (!preg_match('/^https?:\/\/(www\.|[\w]+\.[\w]+)/i', $url)) {
-        $url = preg_replace('/^https?:\/\//i', '$0www.', $url);
     }
     return $url;
 }
 
-// Check if a URL parameter is present
-$url = $_GET['url'] ?? '';
-
-// First, normalize the URL by ensuring it has a scheme
-$url = ensureHttp($url);
-
-// Function to decide delay based on query complexity
+/**
+ * Decide whether to delay the redirect based on query complexity.
+ * Returns true if there are more than 3 parameters or the query string is long.
+ */
 function shouldDelayRedirect($queryParams) {
     return count($queryParams) > 3 || strlen(http_build_query($queryParams)) > 100;
 }
 
-// Validate and sanitize the URL
-if (filter_var($url, FILTER_VALIDATE_URL)) {
-    // Parse the URL
-    $parsedUrl = parse_url($url);
+// Retrieve and normalize the URL parameter
+$inputUrl = $_GET['url'] ?? '';
+$inputUrl = trim($inputUrl);
+$inputUrl = ensureHttp($inputUrl);
 
-    // Optionally remove 'www.'
+// Validate the normalized URL
+if (!filter_var($inputUrl, FILTER_VALIDATE_URL)) {
+    $error = "Invalid URL. Please provide a valid URL including the correct scheme.";
+    $finalUrl = ''; // nothing to redirect to
+} else {
+    // Parse URL components
+    $parsedUrl = parse_url($inputUrl);
+    
+    // Optionally remove "www." from host if you want to further anonymize (uncomment if desired)
     if (isset($parsedUrl['host']) && strpos($parsedUrl['host'], 'www.') === 0) {
         $parsedUrl['host'] = substr($parsedUrl['host'], 4);
     }
-
+    
+    // Parse query parameters if present
     $queryParams = [];
     if (isset($parsedUrl['query'])) {
         parse_str($parsedUrl['query'], $queryParams);
     }
-
-    // Simplify Google Search URLs
+    
+    // Special handling for Google search URLs: keep only the 'q' parameter.
     if (isset($parsedUrl['host']) && strpos($parsedUrl['host'], 'google.') !== false) {
-        $queryParams = array_intersect_key($queryParams, array_flip(['q']));  // Keep only the 'q' parameter
+        $queryParams = array_intersect_key($queryParams, array_flip(['q']));
     }
-
+    
     // Remove affiliate parameters
     foreach ($affiliateParams as $param) {
         unset($queryParams[$param]);
     }
-
-    // Rebuild the URL without affiliate parameters
-    $url = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-    if (isset($parsedUrl['path']) && !empty($parsedUrl['path'])) {
-        $url .= $parsedUrl['path'];
+    
+    // Rebuild the URL using available components
+    $finalUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+    
+    // Include port if present
+    if (isset($parsedUrl['port'])) {
+        $finalUrl .= ':' . $parsedUrl['port'];
     }
+    
+    // Append path if available
+    if (isset($parsedUrl['path'])) {
+        $finalUrl .= $parsedUrl['path'];
+    }
+    
+    // Append cleaned query string if parameters exist
     if (!empty($queryParams)) {
-        $url = $url . '?' . http_build_query($queryParams);
+        $finalUrl .= '?' . http_build_query($queryParams);
     }
+    
+    // Append fragment if it exists
+    if (isset($parsedUrl['fragment'])) {
+        $finalUrl .= '#' . $parsedUrl['fragment'];
+    }
+}
 
-    // Set Referrer-Policy header
-    header('Referrer-Policy: no-referrer');
+// Set the Referrer-Policy header to help prevent sending referrer information.
+header('Referrer-Policy: no-referrer');
 
-    $delay = shouldDelayRedirect($queryParams) ? 1 : 0; // Delay for 1 second if complex
-
-    // Redirect using PHP header
-    header("Refresh: $delay; url=$url");
+// If we have a valid final URL, perform the redirect.
+if (!empty($finalUrl)) {
+    $delay = shouldDelayRedirect($queryParams) ? 1 : 0;
+    
+    if ($delay > 0) {
+        // When delaying, use the Refresh header and provide a meta fallback.
+        header("Refresh: $delay; url=$finalUrl");
+    } else {
+        // Immediate redirect without delay.
+        header("Location: $finalUrl", true, 302);
+    }
     exit;
-} else {
-    $error = "Invalid URL. Please provide a valid URL including the correct scheme.";
-    // Output error message and stop script execution
 }
 ?>
-
-
-
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $url ? 'Redirecting...' : 'Error'; ?></title>
-    <?php if ($url): ?>
-        <!-- Refresh page after 1 second to the URL -->
-        <meta http-equiv="refresh" content="1; url=<?php echo htmlspecialchars($url); ?>">
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><?php echo (!empty($finalUrl)) ? 'Redirecting...' : 'Error'; ?></title>
+    <?php if (!empty($finalUrl) && shouldDelayRedirect($queryParams)): ?>
+        <!-- Meta refresh fallback for delayed redirection -->
+        <meta http-equiv="refresh" content="1; url=<?php echo htmlspecialchars($finalUrl, ENT_QUOTES, 'UTF-8'); ?>" />
     <?php endif; ?>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <style>
@@ -112,24 +129,24 @@ if (filter_var($url, FILTER_VALIDATE_URL)) {
             max-width: 600px;
             margin: auto;
         }
-		.powered {
-        color: #FFFFFF; /* Change to white for better readability */
-        margin-top: 20px;
-		}
+        .powered {
+            color: #FFFFFF;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <?php if ($url): ?>
+        <?php if (!empty($finalUrl)): ?>
             <h1>Please Wait...</h1>
             <p>You are being redirected.</p>
-            <p><a href="<?php echo htmlspecialchars($url); ?>" style="color: #7289DA;">Click here if you are not redirected automatically.</a></p>
+            <p><a href="<?php echo htmlspecialchars($finalUrl, ENT_QUOTES, 'UTF-8'); ?>" style="color: #7289DA;">Click here if you are not redirected automatically.</a></p>
         <?php else: ?>
             <h1>Error</h1>
-            <p><?php echo htmlspecialchars($error); ?></p>
+            <p><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p>
             <p><a href="/" style="color: #7289DA;">Return Home</a></p>
         <?php endif; ?>
-		<p class="powered">Powered by <a href="https://anonymz.io/" style="color: #FFFFFF;">Anonymz</a></p>
+        <p class="powered">Powered by <a href="https://anonymz.io/" style="color: #FFFFFF;">Anonymz</a></p>
     </div>
 </body>
 </html>
