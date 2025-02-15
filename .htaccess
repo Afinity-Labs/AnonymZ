@@ -8,10 +8,15 @@
     RewriteCond %{HTTPS} off
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-    # Redirect all traffic directly to redirect.php with original query preserved
-    RewriteCond %{QUERY_STRING} ^(https?://.*)$ [NC]  # Captures URLs directly after the '?'
+    # Only rewrite if there is a query string (i.e. the user provided a URL)
+    RewriteCond %{QUERY_STRING} .+
+
+    # Redirect if query string is a full URL (http:// or https://)
+    RewriteCond %{QUERY_STRING} ^(https?://.*)$ [NC]
     RewriteRule ^/?$ /redirect.php?url=%1 [L,R=301]
 
+    # Only rewrite if there is a query string (again, ensuring it's not empty)
+    RewriteCond %{QUERY_STRING} .+
     # Handle non-http(s) URL inputs directly after '?' using a negative lookahead
     RewriteCond %{QUERY_STRING} ^(?!https?://)(.*)$ [NC]
     RewriteRule ^/?$ /redirect.php?url=http://%1 [L,R=301]

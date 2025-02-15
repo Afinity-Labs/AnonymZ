@@ -4,6 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnonymZ.io</title>
+  <script>
+  (function() {
+    // Function to delete all cookies for the current domain
+    function deleteAllCookies() {
+      var cookies = document.cookie.split("; ");
+      for (var i = 0; i < cookies.length; i++) {
+        var cookie = cookies[i];
+        var eqPos = cookie.indexOf("=");
+        var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+    }
+    deleteAllCookies();
+  })();
+</script>
+
   <style>
     body {
         font-family: Arial, sans-serif;
