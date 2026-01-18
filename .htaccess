@@ -1,51 +1,64 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Prevent directory listings
-    Options -Indexes
+    # --------------------------------------------------
+    # Core hardening
+    # --------------------------------------------------
 
-    # Force HTTPS for all incoming requests
+    Options -Indexes
+    ServerSignature Off
+
+    # --------------------------------------------------
+    # Force HTTPS (skip localhost)
+    # --------------------------------------------------
+
     RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP_HOST} !^localhost$ [NC]
     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-    # Only rewrite if there is a query string (i.e. the user provided a URL)
+    # --------------------------------------------------
+    # Redirect handling (RAW passthrough)
+    # --------------------------------------------------
+    # Rules:
+    # - Only handle root requests (/)
+    # - Do NOT touch /redirect.php directly
+    # - Pass the full raw request to PHP
+    # --------------------------------------------------
+
+    # Skip redirect.php to prevent loops
+    RewriteRule ^redirect\.php$ - [L]
+
+    # Only act on root requests with something after ?
+    RewriteCond %{REQUEST_URI} ^/$
     RewriteCond %{QUERY_STRING} .+
 
-    # Redirect if query string is a full URL (http:// or https://)
-    RewriteCond %{QUERY_STRING} ^(https?://.*)$ [NC]
-    RewriteRule ^/?$ /redirect.php?url=%1 [L,R=301]
+    # Forward raw request to PHP (NO parsing, NO decoding)
+    RewriteRule ^$ /redirect.php [L]
 
-    # Only rewrite if there is a query string (again, ensuring it's not empty)
-    RewriteCond %{QUERY_STRING} .+
-    # Handle non-http(s) URL inputs directly after '?' using a negative lookahead
-    RewriteCond %{QUERY_STRING} ^(?!https?://)(.*)$ [NC]
-    RewriteRule ^/?$ /redirect.php?url=http://%1 [L,R=301]
-
+    # --------------------------------------------------
     # Custom error pages
+    # --------------------------------------------------
+
     ErrorDocument 404 /404.html
     ErrorDocument 500 /500.html
 
-    # Add essential security headers
+    # --------------------------------------------------
+    # Security headers
+    # --------------------------------------------------
+
     <IfModule mod_headers.c>
-        # Enable Strict-Transport-Security (HSTS) to enforce HTTPS
         Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-
-        # X-Frame-Options to prevent clickjacking
         Header always set X-Frame-Options "DENY"
+        Header always set X-Content-Type-Options "nosniff"
+        Header always set Referrer-Policy "no-referrer"
+        Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 
-        # X-Content-Type-Options to prevent MIME-type sniffing
-        Header set X-Content-Type-Options "nosniff"
+        # CSP safe for inline JS/CSS
+        Header always set Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
-        # Referrer-Policy to limit information leakage
-        Header set Referrer-Policy "no-referrer-when-downgrade"
-
-        # Permissions-Policy to limit browser feature use
-        Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
-
-        # Content-Security-Policy (adjusted to prevent breaking site functionality)
-        Header set Content-Security-Policy "default-src 'self' https://anonymz.io; script-src 'self' 'unsafe-inline' https://anonymz.io; style-src 'self' 'unsafe-inline'; img-src 'self';"
+        # Prevent caching of redirect responses
+        Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header always set Pragma "no-cache"
     </IfModule>
-
-    # Disable server signature for security
-    ServerSignature Off
 </IfModule>
+

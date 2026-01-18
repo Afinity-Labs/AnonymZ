@@ -1,152 +1,385 @@
 <?php
-// List of known affiliate query parameters
-$affiliateParams = ['ref', 'ref_', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'aff'];
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING);
 
-/**
- * Ensure the URL has a scheme. If missing, prepend 'http://'.
- * (Optionally, you can add logic to enforce 'www.' if needed.)
- */
-function ensureHttp($url) {
-    if (!preg_match('/^https?:\/\//i', $url)) {
-        $url = 'http://' . $url;
-    }
-    return $url;
-}
+// --------------------------------------------------
+// Configuration
+// --------------------------------------------------
 
-/**
- * Decide whether to delay the redirect based on query complexity.
- * Returns true if there are more than 3 parameters or the query string is long.
- */
-function shouldDelayRedirect($queryParams) {
+$affiliateParams = [
+    'ref', 'ref_', 'utm_source', 'utm_medium',
+    'utm_campaign', 'utm_term', 'utm_content', 'aff'
+];
+
+$maxUrlLength = 4096;
+$selfHosts    = ['anonymz.io', 'www.anonymz.io'];
+
+// Toggle failure telemetry (privacy-safe)
+$enableFailureWebhook = true;
+
+// Internal webhook proxy (NOT the real webhook)
+$failureWebhookEndpoint = 'https://anonymz.io/internal/error-webhook.php';
+
+// --------------------------------------------------
+// Helpers
+// --------------------------------------------------
+
+function shouldDelayRedirect(array $queryParams): bool {
     return count($queryParams) > 3 || strlen(http_build_query($queryParams)) > 100;
 }
 
-// Retrieve and normalize the URL parameter
-$inputUrl = $_GET['url'] ?? '';
-$inputUrl = trim($inputUrl);
-$inputUrl = ensureHttp($inputUrl);
+function normalizeInputUrl(): string {
+    if (!empty($_GET['url'])) {
+        // Direct access: /redirect.php?url=https://example.com
+        return trim($_GET['url']);
+    }
 
-// Validate the normalized URL
-if (!filter_var($inputUrl, FILTER_VALIDATE_URL)) {
-    $error = "Invalid URL. Please provide a valid URL including the correct scheme.";
-    $finalUrl = ''; // nothing to redirect to
+    // Root passthrough: https://anonymz.io/?https://example.com
+    $uri = $_SERVER['REQUEST_URI'] ?? '';
+    return trim(ltrim($uri, '/?'));
+}
+
+/**
+ * Privacy-safe failure telemetry
+ */
+function sendFailureWebhook(string $error, string $inputUrl): void
+{
+    global $enableFailureWebhook, $failureWebhookEndpoint;
+
+    if (!$enableFailureWebhook || !$failureWebhookEndpoint) {
+        return;
+    }
+
+    // One-way fingerprint (non-reversible)
+    $fingerprint = hash('sha256', $inputUrl);
+
+    $payload = [
+        'embeds' => [[
+            'title' => 'AnonymZ Redirect Failure',
+            'color' => 15158332,
+            'fields' => [
+                [
+                    'name' => 'Error',
+                    'value' => $error,
+                    'inline' => true
+                ],
+                [
+                    'name' => 'Fingerprint',
+                    'value' => substr($fingerprint, 0, 12),
+                    'inline' => true
+                ],
+                [
+                    'name' => 'Time',
+                    'value' => gmdate('Y-m-d H:i:s') . ' UTC'
+                ]
+            ]
+        ]]
+    ];
+
+    $ch = curl_init($failureWebhookEndpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'X-Internal-Hook: 1'
+        ],
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_RETURNTRANSFER => false,
+        CURLOPT_TIMEOUT_MS     => 300,
+    ]);
+
+    @curl_exec($ch);
+    @curl_close($ch);
+}
+
+// --------------------------------------------------
+// Init
+// --------------------------------------------------
+
+$inputUrl    = normalizeInputUrl();
+$finalUrl    = '';
+$queryParams = [];
+$error       = null;
+
+// --------------------------------------------------
+// Input handling
+// --------------------------------------------------
+
+if ($inputUrl === '') {
+    $error = 'Missing destination URL.';
 } else {
-    // Parse URL components
-    $parsedUrl = parse_url($inputUrl);
-    
-    // Optionally remove "www." from host if you want to further anonymize (uncomment if desired)
-    if (isset($parsedUrl['host']) && strpos($parsedUrl['host'], 'www.') === 0) {
-        $parsedUrl['host'] = substr($parsedUrl['host'], 4);
+
+    // Decode up to 3 times (safe against over-decoding)
+    for ($i = 0; $i < 3; $i++) {
+        $decoded = urldecode($inputUrl);
+        if ($decoded === $inputUrl) {
+            break;
+        }
+        $inputUrl = $decoded;
     }
-    
-    // Parse query parameters if present
-    $queryParams = [];
-    if (isset($parsedUrl['query'])) {
-        parse_str($parsedUrl['query'], $queryParams);
+
+    // Normalize spaces after decoding
+    $inputUrl = str_replace(' ', '%20', $inputUrl);
+
+    // Length limit
+    if (strlen($inputUrl) > $maxUrlLength) {
+        $error = 'URL too long.';
     }
-    
-    // Special handling for Google search URLs: keep only the 'q' parameter.
-    if (isset($parsedUrl['host']) && strpos($parsedUrl['host'], 'google.') !== false) {
-        $queryParams = array_intersect_key($queryParams, array_flip(['q']));
+
+    // Reject dangerous or unsupported schemes BEFORE forcing https
+    if (
+        !$error &&
+        preg_match('#^(ftp|file|data|javascript):#i', $inputUrl)
+    ) {
+        $error = 'Unsupported URL scheme.';
     }
-    
-    // Remove affiliate parameters
-    foreach ($affiliateParams as $param) {
-        unset($queryParams[$param]);
+
+    // Reject multiple http(s) schemes
+    if (
+        !$error &&
+        preg_match('#^(https?://){2,}#i', $inputUrl)
+    ) {
+        $error = 'Invalid URL format.';
     }
-    
-    // Rebuild the URL using available components
-    $finalUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
-    
-    // Include port if present
-    if (isset($parsedUrl['port'])) {
-        $finalUrl .= ':' . $parsedUrl['port'];
-    }
-    
-    // Append path if available
-    if (isset($parsedUrl['path'])) {
-        $finalUrl .= $parsedUrl['path'];
-    }
-    
-    // Append cleaned query string if parameters exist
-    if (!empty($queryParams)) {
-        $finalUrl .= '?' . http_build_query($queryParams);
-    }
-    
-    // Append fragment if it exists
-    if (isset($parsedUrl['fragment'])) {
-        $finalUrl .= '#' . $parsedUrl['fragment'];
+
+    // Force https ONLY if no scheme exists
+    if (
+        !$error &&
+        !preg_match('#^https?://#i', $inputUrl)
+    ) {
+        $inputUrl = 'https://' . $inputUrl;
     }
 }
 
-// Set the Referrer-Policy header to help prevent sending referrer information.
-header('Referrer-Policy: no-referrer');
+// --------------------------------------------------
+// Validation & cleanup
+// --------------------------------------------------
 
-// If we have a valid final URL, perform the redirect.
-if (!empty($finalUrl)) {
-    $delay = shouldDelayRedirect($queryParams) ? 1 : 0;
-    
-    if ($delay > 0) {
-        // When delaying, use the Refresh header and provide a meta fallback.
-        header("Refresh: $delay; url=$finalUrl");
+if (!$error && filter_var($inputUrl, FILTER_VALIDATE_URL)) {
+
+    $parsedUrl = parse_url($inputUrl);
+
+    if (
+        empty($parsedUrl['scheme']) ||
+        empty($parsedUrl['host']) ||
+        !in_array(strtolower($parsedUrl['scheme']), ['http', 'https'], true)
+    ) {
+        $error = 'Invalid or unsupported URL.';
+    }
+
+    // Block userinfo abuse
+    elseif (strpos($parsedUrl['host'], '@') !== false) {
+        $error = 'Invalid URL host.';
+    }
+
+    // Prevent self-redirect loops
+    elseif (in_array(strtolower($parsedUrl['host']), $selfHosts, true)) {
+        $error = 'Self redirects are not allowed.';
+    }
+
+    else {
+
+        // Normalize host
+        if (strpos($parsedUrl['host'], 'www.') === 0) {
+            $parsedUrl['host'] = substr($parsedUrl['host'], 4);
+        }
+
+        // Parse query string
+        if (!empty($parsedUrl['query'])) {
+            parse_str($parsedUrl['query'], $queryParams);
+        }
+
+        // Google search hardening
+        if (strpos($parsedUrl['host'], 'google.') !== false) {
+            $queryParams = array_intersect_key($queryParams, ['q' => true]);
+        }
+
+        // Strip tracking / affiliate params
+        foreach ($affiliateParams as $param) {
+            unset($queryParams[$param]);
+        }
+
+        // --------------------------------------------------
+        // Rebuild clean URL
+        // --------------------------------------------------
+
+        $finalUrl = $parsedUrl['scheme'] . '://' . $parsedUrl['host'];
+
+        if (!empty($parsedUrl['port'])) {
+            $finalUrl .= ':' . $parsedUrl['port'];
+        }
+
+        if (!empty($parsedUrl['path'])) {
+            $finalUrl .= $parsedUrl['path'];
+        }
+
+        if (!empty($queryParams)) {
+            $finalUrl .= '?' . http_build_query($queryParams);
+        }
+
+        if (!empty($parsedUrl['fragment'])) {
+            $finalUrl .= '#' . $parsedUrl['fragment'];
+        }
+    }
+
+} elseif (!$error) {
+    $error = 'Invalid URL. Please provide a valid destination URL.';
+}
+
+// --------------------------------------------------
+// Headers
+// --------------------------------------------------
+
+header('Content-Type: text/html; charset=UTF-8');
+header('Referrer-Policy: no-referrer');
+header('X-Content-Type-Options: nosniff');
+
+// --------------------------------------------------
+// Redirect (ONLY if final URL is valid)
+// --------------------------------------------------
+
+if ($finalUrl && filter_var($finalUrl, FILTER_VALIDATE_URL)) {
+    if (shouldDelayRedirect($queryParams)) {
+        header("Refresh: 1; url={$finalUrl}");
     } else {
-        // Immediate redirect without delay.
-        header("Location: $finalUrl", true, 302);
+        header("Location: {$finalUrl}", true, 302);
     }
     exit;
 }
+
+// If we reach here, treat as handled error
+$finalUrl = '';
+$error = $error ?: 'The destination URL is invalid.';
+
+
+// --------------------------------------------------
+// Failure telemetry (ONLY on error)
+// --------------------------------------------------
+
+if ($error) {
+    sendFailureWebhook($error, $inputUrl);
+}
+
+// --------------------------------------------------
+// Error output
+// --------------------------------------------------
+
+http_response_code(200);
 ?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?php echo (!empty($finalUrl)) ? 'Redirecting...' : 'Error'; ?></title>
-    <?php if (!empty($finalUrl) && shouldDelayRedirect($queryParams)): ?>
-        <!-- Meta refresh fallback for delayed redirection -->
-        <meta http-equiv="refresh" content="1; url=<?php echo htmlspecialchars($finalUrl, ENT_QUOTES, 'UTF-8'); ?>" />
+    <title><?= $finalUrl ? 'Redirecting…' : 'Unable to Redirect'; ?></title>
+
+    <?php if ($finalUrl && shouldDelayRedirect($queryParams)): ?>
+
     <?php endif; ?>
+
     <link rel="icon" type="image/png" href="/favicon.png" />
+
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
             background-color: #23272A;
             color: #FFFFFF;
             margin: 0;
-            padding: 0;
             display: flex;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            text-align: center;
         }
+
         .container {
             background-color: #2C2F33;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            max-width: 600px;
-            margin: auto;
+            border-radius: 12px;
+            width: 420px;
+            height: 320px;
+            padding: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            text-align: center;
         }
-        .powered {
-            color: #FFFFFF;
-            margin-top: 20px;
+
+        h1 {
+            margin: 0 0 8px 0;
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+
+        p {
+            margin: 0;
+            color: #DCDDDE;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .action {
+            margin-top: 8px;
+        }
+
+        a {
+            color: #7289DA;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .footer {
+            font-size: 0.8rem;
+            color: #9DA3A6;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <?php if (!empty($finalUrl)): ?>
-            <h1>Please Wait...</h1>
-            <p>You are being redirected.</p>
-            <p><a href="<?php echo htmlspecialchars($finalUrl, ENT_QUOTES, 'UTF-8'); ?>" style="color: #7289DA;">Click here if you are not redirected automatically.</a></p>
+
+<div class="container">
+    <div class="content">
+        <?php if ($finalUrl): ?>
+            <h1>Redirecting</h1>
+            <p>
+                You are being securely redirected to your destination.
+            </p>
+
+            <div class="action">
+                <a href="<?= htmlspecialchars($finalUrl, ENT_QUOTES, 'UTF-8'); ?>">
+                    Continue manually
+                </a>
+            </div>
         <?php else: ?>
-            <h1>Error</h1>
-            <p><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p>
-            <p><a href="/" style="color: #7289DA;">Return Home</a></p>
+            <h1>Unable to Redirect</h1>
+            <p>
+                The provided link could not be processed.
+                This usually happens if the URL is malformed or unsupported.
+            </p>
+
+            <div class="action">
+                <a href="/">Return Home</a>
+            </div>
         <?php endif; ?>
-        <p class="powered">Powered by <a href="https://anonymz.io/" style="color: #FFFFFF;">Anonymz</a></p>
     </div>
+
+    <div class="footer">
+        Powered by <a href="https://anonymz.io/">AnonymZ</a>
+    </div>
+</div>
+
 </body>
 </html>
+
+<?php exit; ?>

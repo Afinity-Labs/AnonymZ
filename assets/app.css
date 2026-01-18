@@ -1,0 +1,195 @@
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #23272A; /* Discord dark theme background */
+        color: #FFFFFF;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        text-align: center;
+    }
+
+    .container {
+        background-color: #2C2F33; /* Discord panel color */
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        max-width: 600px;
+        margin: auto;
+    }
+
+    .button {
+        display: inline-block;
+        padding: 10px 20px;
+        margin-top: 20px;
+        background-color: #7289DA; /* Discord primary color */
+        color: #FFFFFF;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-decoration: none;
+        font-size: 16px;
+    }
+
+    .button:hover {
+        background-color: #677BC4; /* Slightly darker shade for hover effect */
+    }
+    
+    .url-input, .url-output {
+        width: 80%;
+        padding: 10px;
+        margin: 10px 0;
+        border: 1px solid #7289DA;
+        border-radius: 4px;
+        color: #FFFFFF;
+        background-color: #2C2F33;
+    }
+
+    .url-output {
+        word-wrap: break-word;
+    }
+
+    .url-section {
+        margin-top: 20px;
+        text-align: center;
+    }
+
+    .url-section input, .url-section .button-group {
+        margin: 5px 0;
+    }
+
+    .button-group button, .button-group a {
+        margin-right: 5px;
+    }
+
+    /* Hamburger Menu styles */
+    .nav-icon {
+        cursor: pointer;
+        display: block;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        user-select: none;
+    }
+
+    .nav-icon div {
+        width: 30px;
+        height: 3px;
+        background-color: #ffffff;
+        margin: 6px 0;
+        transition: 0.4s;
+    }
+
+    /* Rotate first bar */
+    .change .bar1 {
+        -webkit-transform: rotate(-45deg) translate(-5px, 6px);
+        transform: rotate(-45deg) translate(-5px, 6px);
+    }
+
+    /* Fade out the second bar */
+    .change .bar2 {
+        opacity: 0;
+    }
+
+    /* Rotate last bar */
+    .change .bar3 {
+        -webkit-transform: rotate(45deg) translate(-5px, -6px);
+        transform: rotate(45deg) translate(-5px, -6px);
+    }
+
+    .nav-content {
+        display: none;
+        position: absolute;
+        background-color: #2C2F33;
+        min-width: 160px;
+        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+        z-index: 999; /* Ensure it's below the nav-icon but above everything else */
+        right: 10px;
+        top: 45px; /* Adjusted to better align below the hamburger icon */
+    }
+
+    .nav-content a {
+        color: white;
+        padding: 12px 16px;
+        text-decoration: none;
+        display: block;
+        text-align: left;
+    }
+
+    .nav-content a:hover {
+        background-color: #677BC4; /* Slightly darker shade for hover effect */
+    }
+
+    .show {
+        display: block; /* Ensures the dropdown shows when the class is added */
+    }
+
+        #aboutSection {
+            color: #FFFFFF;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+        
+        .text-link {
+            color: #7289DA; /* Example: primary color for links */
+            text-decoration: underline; /* Underlines to signify it's clickable */
+        }
+
+        #aboutSection h1, #aboutSection h2 {
+            color: #7289DA;
+        }
+
+        #aboutSection p {
+            margin-bottom: 20px;
+        }
+
+        #aboutSection ul {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 20px;
+        }
+
+        #aboutSection li {
+            padding-left: 20px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        #aboutSection li::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            background-color: #7289DA;
+            border-radius: 50%;
+            position: absolute;
+            left: 0;
+            top: 12px;
+        }
+
+        .button-group {
+            margin-top: 20px;
+        }
+        
+                #usageSection {
+            background-color: #2C2F33; /* Discord panel color */
+            color: #FFFFFF;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        #usageSection h2, #usageSection h3 {
+            color: #7289DA; /* Discord primary color */
+        }
+
+        #usageSection pre, #usageSection code {
+            background-color: #23272A; /* Discord dark theme background */
+            color: #FFFFFF;
+            padding: 10px;
+            border-radius: 5px;
+            display: block;
+            word-wrap: break-word;
+        }

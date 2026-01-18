@@ -1,397 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AnonymZ.io</title>
-  <script>
-  (function() {
-    // Function to delete all cookies for the current domain
-    function deleteAllCookies() {
-      var cookies = document.cookie.split("; ");
-      for (var i = 0; i < cookies.length; i++) {
-        var cookie = cookies[i];
-        var eqPos = cookie.indexOf("=");
-        var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
-        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
-      }
-    }
-    deleteAllCookies();
-  })();
-</script>
 
-  <style>
-    body {
-        font-family: Arial, sans-serif;
-        background-color: #23272A; /* Discord dark theme background */
-        color: #FFFFFF;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100vh;
-        text-align: center;
-    }
-
-    .container {
-        background-color: #2C2F33; /* Discord panel color */
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        max-width: 600px;
-        margin: auto;
-    }
-
-    .button {
-        display: inline-block;
-        padding: 10px 20px;
-        margin-top: 20px;
-        background-color: #7289DA; /* Discord primary color */
-        color: #FFFFFF;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        text-decoration: none;
-        font-size: 16px;
-    }
-
-    .button:hover {
-        background-color: #677BC4; /* Slightly darker shade for hover effect */
-    }
-    
-    .url-input, .url-output {
-        width: 80%;
-        padding: 10px;
-        margin: 10px 0;
-        border: 1px solid #7289DA;
-        border-radius: 4px;
-        color: #FFFFFF;
-        background-color: #2C2F33;
-    }
-
-    .url-output {
-        word-wrap: break-word;
-    }
-
-    .url-section {
-        margin-top: 20px;
-        text-align: center;
-    }
-
-    .url-section input, .url-section .button-group {
-        margin: 5px 0;
-    }
-
-    .button-group button, .button-group a {
-        margin-right: 5px;
-    }
-
-    /* Hamburger Menu styles */
-    .nav-icon {
-        cursor: pointer;
-        display: block;
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        z-index: 1000;
-        user-select: none;
-    }
-
-    .nav-icon div {
-        width: 30px;
-        height: 3px;
-        background-color: #ffffff;
-        margin: 6px 0;
-        transition: 0.4s;
-    }
-
-    /* Rotate first bar */
-    .change .bar1 {
-        -webkit-transform: rotate(-45deg) translate(-5px, 6px);
-        transform: rotate(-45deg) translate(-5px, 6px);
-    }
-
-    /* Fade out the second bar */
-    .change .bar2 {
-        opacity: 0;
-    }
-
-    /* Rotate last bar */
-    .change .bar3 {
-        -webkit-transform: rotate(45deg) translate(-5px, -6px);
-        transform: rotate(45deg) translate(-5px, -6px);
-    }
-
-    .nav-content {
-        display: none;
-        position: absolute;
-        background-color: #2C2F33;
-        min-width: 160px;
-        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
-        z-index: 999; /* Ensure it's below the nav-icon but above everything else */
-        right: 10px;
-        top: 45px; /* Adjusted to better align below the hamburger icon */
-    }
-
-    .nav-content a {
-        color: white;
-        padding: 12px 16px;
-        text-decoration: none;
-        display: block;
-        text-align: left;
-    }
-
-    .nav-content a:hover {
-        background-color: #677BC4; /* Slightly darker shade for hover effect */
-    }
-
-    .show {
-        display: block; /* Ensures the dropdown shows when the class is added */
-    }
-  </style>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Initially hide all sections and display only the home section
-      const sections = document.querySelectorAll('.hidden-section');
-      sections.forEach(section => section.style.display = 'none');
-      document.getElementById('defaultSection').style.display = 'block';
-
-      // Define toggleMenu and hideMenu functions for the hamburger dropdown
-      window.toggleMenu = function() {
-        const navIcon = document.querySelector('.nav-icon');
-        const myDropdown = document.getElementById('myDropdown');
-        navIcon.classList.toggle('change');
-        myDropdown.style.display = (myDropdown.style.display === 'block') ? 'none' : 'block';
-      };
-
-      window.hideMenu = function() {
-        const navIcon = document.querySelector('.nav-icon');
-        const myDropdown = document.getElementById('myDropdown');
-        navIcon.classList.remove('change');
-        myDropdown.style.display = 'none';
-      };
-
-      // Keep dropdown open on mouseover and close on mouseout if not toggled
-      const myDropdown = document.getElementById('myDropdown');
-      myDropdown.addEventListener('mouseover', function() {
-        myDropdown.style.display = 'block';
-      });
-
-      myDropdown.addEventListener('mouseout', function() {
-        const navIcon = document.querySelector('.nav-icon');
-        if (!navIcon.classList.contains('change')) {
-          myDropdown.style.display = 'none';
-        }
-      });
-
-      // Close dropdown if click occurs outside of it
-      document.addEventListener('click', function(event) {
-        const navIcon = document.querySelector('.nav-icon');
-        if (!navIcon.contains(event.target) && !myDropdown.contains(event.target)) {
-          navIcon.classList.remove('change');
-          myDropdown.style.display = 'none';
-        }
-      });
-
-      // Function to switch visible sections
-      window.switchSection = function(sectionId) {
-        const sections = document.querySelectorAll('.hidden-section');
-        sections.forEach(section => section.style.display = 'none');
-        document.getElementById(sectionId).style.display = 'block';
-        hideMenu();
-      };
-
-      // Function to generate an anonymized URL
-      window.generateAnonymizedUrl = function() {
-        const urlInput = document.getElementById('urlInput').value.trim();
-        if (!urlInput) return;
-        const anonymizedUrl = 'https://anonymz.io/?' + urlInput;
-        document.getElementById('anonymizedUrl').value = anonymizedUrl;
-        document.getElementById('useLink').href = anonymizedUrl;
-        document.getElementById('anonymizedUrlSection').style.display = 'block';
-      };
-
-      // Function to handle "Enter" key press
-      window.handleKeyPress = function(event) {
-        if (event.key === 'Enter') {
-          generateAnonymizedUrl();
-        }
-      };
-
-      // Function to copy the URL to the clipboard using the modern Clipboard API if available.
-      window.copyToClipboard = function() {
-        const anonymizedUrlElement = document.getElementById('anonymizedUrl');
-        const textToCopy = anonymizedUrlElement.value;
-        if (navigator.clipboard && window.isSecureContext) {
-          navigator.clipboard.writeText(textToCopy).then(() => {
-            // Optionally, you can provide feedback that the copy was successful.
-            console.log('Copied to clipboard successfully.');
-          }).catch(err => {
-            console.error('Failed to copy: ', err);
-          });
-        } else {
-          // Fallback for older browsers
-          anonymizedUrlElement.select();
-          document.execCommand('copy');
-        }
-      };
-    });
-  </script>
+  <link rel="stylesheet" href="/assets/app.css" />
+  <script src="/assets/app.js" defer></script>
 </head>
+
 <body>
   <div class="container">
+
     <!-- Hamburger Menu Icon -->
     <div class="nav-icon" onclick="toggleMenu()">
       <div class="bar1"></div>
       <div class="bar2"></div>
       <div class="bar3"></div>
     </div>
-    <!-- Dropdown Menu Content -->
+
+    <!-- Dropdown Menu -->
     <div class="nav-content" id="myDropdown">
       <a href="#" onclick="switchSection('defaultSection'); hideMenu()">Home</a>
       <a href="#" onclick="switchSection('aboutSection'); hideMenu()">About</a>
       <a href="#" onclick="switchSection('usageSection'); hideMenu()">Usage</a>
     </div>
+
+    <!-- HOME -->
     <div id="defaultSection" class="hidden-section active">
       <h1>Welcome to AnonymZ.io</h1>
-      <p>AnonymZ.io offers secure link anonymization to protect privacy and secure web traffic sources. It's the perfect tool for ensuring the confidentiality of your online activities.</p>
-      <p>For more information or to contribute, visit our GitHub page or join our Discord support server.</p>
-      <a href="https://www.paypal.com/donate?hosted_button_id=WHUGFBKXXCJ5G" class="button">Donate</a>
-      <a href="https://github.com/Finch-Studio/AnonymZ/" class="button">View on GitHub</a>
-      <a href="https://discord.gg/rvVuZswQ5p" class="button">Discord</a>
-      
+
+      <p>
+        AnonymZ.io offers secure link anonymization to protect privacy and
+        secure web traffic sources.
+      </p>
+
+      <p>
+        For more information or to contribute, visit our GitHub page or join
+        our Discord support server.
+      </p>
+
+      <a href="https://www.paypal.com/donate?hosted_button_id=WHUGFBKXXCJ5G" class="button">
+        Donate
+      </a>
+      <a href="https://github.com/Afinity-Labs/AnonymZ/" class="button">
+        View on GitHub
+      </a>
+      <a href="https://discord.gg/69XMGvG7fP" class="button">
+        Discord
+      </a>
+
       <div>
         <h2>Generate Anonymized URL</h2>
-        <input type="text" id="urlInput" class="url-input" placeholder="Enter URL here" onkeypress="handleKeyPress(event)">
-        <button onclick="generateAnonymizedUrl()" class="button">Generate Link</button>
+
+        <input
+          type="text"
+          id="urlInput"
+          class="url-input"
+          placeholder="Enter URL here"
+          onkeypress="handleKeyPress(event)"
+        />
+
+        <button onclick="generateAnonymizedUrl()" class="button">
+          Generate Link
+        </button>
 
         <div id="anonymizedUrlSection" class="url-section" style="display:none;">
-          <input type="text" id="anonymizedUrl" class="url-output" readonly>
+          <input
+            type="text"
+            id="anonymizedUrl"
+            class="url-output"
+            readonly
+          />
+
           <div class="button-group">
             <button onclick="copyToClipboard()" class="button">Copy</button>
-            <a id="useLink" href="" target="_blank" class="button">Visit</a>
+            <a
+              id="useLink"
+              href=""
+              target="_blank"
+              rel="noopener noreferrer"
+              class="button"
+            >
+              Visit
+            </a>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- ABOUT -->
     <div id="aboutSection" class="hidden-section">
       <center>
         <h1>About Us</h1>
-        <p>Welcome to <strong>AnonymZ.io</strong>, your trusted partner in enhancing online privacy and security. We are dedicated to anonymizing links for various online services, including Usenet and Torrent systems.</p>
-        <p>Our service provides a crucial layer of security, protecting the privacy of users by masking the sources of web traffic and preventing potential tracking. This is vital for services handling sensitive information.</p>
-        
+
+        <p>
+          Welcome to <strong>AnonymZ.io</strong>, your trusted partner in
+          enhancing online privacy and security. We are dedicated to
+          anonymizing links for various online services, including Usenet and
+          Torrent systems.
+        </p>
+
+        <p>
+          Our service provides a crucial layer of security, protecting the
+          privacy of users by masking the sources of web traffic and preventing
+          potential tracking.
+        </p>
+
         <h2>Our Commitment</h2>
-        <p><strong>No Logging:</strong> While AnonymZ.io does not keep any logs of user activity, it's important to note that Cloudflare, which we use to protect our server from attacks, may keep logs for its operational purposes.</p>
-        <p><strong>Open Source:</strong> AnonymZ.io offers an open-source solution hosted on <a href="https://github.com/Finch-Studio/AnonymZ" class="text-link">GitHub</a>. This platform allows anyone to use, adapt, and contribute to meeting their needs and enhancing the service.</p>
-        
-        <p>Whether you are a casual internet user or a service provider, <strong>AnonymZ.io</strong> is committed to ensuring your activities remain private and secure.</p>
-        
+
+        <p>
+          <strong>No Logging:</strong> AnonymZ.io does not keep any logs of user
+          activity. Infrastructure providers may keep operational logs for
+          protection purposes.
+        </p>
+
+        <p>
+          <strong>Open Source:</strong> This project is open-source and
+          available on
+          <a href="https://github.com/Afinity-Labs/AnonymZ" class="text-link">
+            GitHub
+          </a>.
+        </p>
+
+        <p>
+          Whether you are a casual internet user or a service provider,
+          <strong>AnonymZ.io</strong> is committed to ensuring your activities
+          remain private and secure.
+        </p>
+
         <div class="button-group">
-          <a href="#" onclick="switchSection('defaultSection'); hideMenu()" class="button">Return Home</a>
-          <a href="https://www.paypal.com/donate?hosted_button_id=WHUGFBKXXCJ5G" class="button">Donate via PayPal</a>
+          <a href="#" onclick="switchSection('defaultSection'); hideMenu()" class="button">
+            Return Home
+          </a>
+          <a href="https://www.paypal.com/donate?hosted_button_id=WHUGFBKXXCJ5G" class="button">
+            Donate via PayPal
+          </a>
         </div>
 
-        <p>All donations help cover the costs of domain and server maintenance, operational costs, and ensure our service remains free and accessible. Any remaining funds are allocated to future expenses on servers and domains.</p>
+        <p>
+          Donations help cover domain and server costs and keep the service
+          free and accessible.
+        </p>
 
-        <a href="#" onclick="switchSection('usageSection'); hideMenu()" class="button">Learn How to Use Our Service</a>
+        <a href="#" onclick="switchSection('usageSection'); hideMenu()" class="button">
+          Learn How to Use Our Service
+        </a>
       </center>
-      <style>
-        #aboutSection {
-            color: #FFFFFF;
-            text-align: left;
-            margin-bottom: 20px;
-        }
-        
-        .text-link {
-            color: #7289DA; /* Example: primary color for links */
-            text-decoration: underline; /* Underlines to signify it's clickable */
-        }
-
-        #aboutSection h1, #aboutSection h2 {
-            color: #7289DA;
-        }
-
-        #aboutSection p {
-            margin-bottom: 20px;
-        }
-
-        #aboutSection ul {
-            list-style: none;
-            padding: 0;
-            margin-bottom: 20px;
-        }
-
-        #aboutSection li {
-            padding-left: 20px;
-            margin-bottom: 10px;
-            position: relative;
-        }
-
-        #aboutSection li::before {
-            content: "";
-            width: 8px;
-            height: 8px;
-            background-color: #7289DA;
-            border-radius: 50%;
-            position: absolute;
-            left: 0;
-            top: 12px;
-        }
-
-        .button-group {
-            margin-top: 20px;
-        }
-      </style>
     </div>
 
+    <!-- USAGE -->
     <div id="usageSection" class="hidden-section">
       <h2>How to Use</h2>
-      <p>To effectively utilize AnonymZ.io for anonymizing links or using it as a referrer, follow these instructions:</p>
 
-      <h3>Link Anonymization</h3>
-      <p>To anonymize a link, simply enter the URL you wish to anonymize into the service's input field. AnonymZ.io will then generate a new, obscured link that you can use, which hides the original source from trackers.</p>
+        <p>
+        To anonymize a link, enter the URL you wish to anonymize into the input field on the home page.
+        </p>
 
       <h3>Using as a Referrer</h3>
-      <p>To use AnonymZ.io as a referrer, append your original URL to our service URL. For example:</p>
-      <code>https://anonymz.io/?https://google.ca</code>
-      <p>This method anonymizes the traffic source and uses AnonymZ.io as the referrer, which can help mask the original traffic source in analytics and server logs.</p>
 
-      <h3>Integrating as a Referrer in .htaccess</h3>
-      <p>If you want to use AnonymZ.io as the default referrer for your website, you can add the following lines to your .htaccess file:</p>
-      <pre>RewriteEngine On
-RewriteCond %{HTTP_REFERER} !^$
-RewriteCond %{HTTP_REFERER} !^https://anonymz.io/ [NC]
-RewriteRule .* https://anonymz.io/?%{HTTP_REFERER} [R=302,L]</pre>
-      <p>This configuration will redirect all inbound links that do not already use AnonymZ.io as the referrer, effectively anonymizing the source before visitors reach your site.</p>
+        <p>
+        Append your destination URL after the question mark. Full URLs are supported, and URLs without a scheme will automatically default to HTTPS.
+        </p>
 
-      <h3>Using in Other Programs</h3>
-      <p>For integrating AnonymZ.io as a referrer in other programs or applications, simply prepend our service URL to any outbound links similar to the example provided. This will ensure that all outbound traffic is routed through AnonymZ.io, maintaining anonymity.</p>
-      <a href="#" onclick="switchSection('defaultSection'); hideMenu()" class="button">Return Home</a>
-      <style>
-        #usageSection {
-            background-color: #2C2F33; /* Discord panel color */
-            color: #FFFFFF;
-            padding: 20px;
-            border-radius: 10px;
-            margin-top: 20px;
-        }
+          <code>https://anonymz.io/?https://google.ca</code>
 
-        #usageSection h2, #usageSection h3 {
-            color: #7289DA; /* Discord primary color */
-        }
+      <h3>Integrating via .htaccess</h3>
 
-        #usageSection pre, #usageSection code {
-            background-color: #23272A; /* Discord dark theme background */
-            color: #FFFFFF;
-            padding: 10px;
-            border-radius: 5px;
-            display: block;
-            word-wrap: break-word;
-        }
-      </style>
+        <pre>
+        RewriteEngine On
+        RewriteCond %{HTTP_REFERER} !^$
+        RewriteCond %{HTTP_REFERER} !^https://anonymz.io/ [NC]
+        RewriteRule .* https://anonymz.io/?%{HTTP_REFERER} [R=302,L]
+        </pre>
+
+        <p>
+        This ensures inbound traffic is routed through AnonymZ.io before reaching your site.
+        </p>
+
+        <a href="#" onclick="switchSection('defaultSection'); hideMenu()" class="button">
+        Return Home
+        </a>
     </div>
   </div>
 </body>
 </html>
+
